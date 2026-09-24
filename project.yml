@@ -57,6 +57,7 @@ targets:
     info:
       path: LapMonitor/Info.plist
       properties:
+        CFBundleDisplayName: Lap Monitor
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).LapMonitor
@@ -73,6 +74,7 @@ targets:
     info:
       path: LapWidgets/Info.plist
       properties:
+        CFBundleDisplayName: Lap Widgets
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
