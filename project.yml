@@ -1,0 +1,80 @@
+name: Lap
+options:
+  bundleIdPrefix: nl.lerai
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  Lap:
+    type: application
+    platform: iOS
+    sources: [App]
+    entitlements:
+      path: App/Lap.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [group.nl.lerai.lap]
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Lap
+        UILaunchScreen: {}
+        UIBackgroundModes: [location]
+        NSLocationWhenInUseUsageDescription: Lap tracks your run so it can count laps and unlock your screen time.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Lap keeps tracking while the screen is off so your lap still counts.
+        NSMotionUsageDescription: Used to make lap detection more accurate.
+        NSSupportsLiveActivities: true
+        ITSAppUsesNonExemptEncryption: false
+    dependencies:
+      - target: LapMonitor
+        embed: true
+      - target: LapWidgets
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.lerai.lap
+        TARGETED_DEVICE_FAMILY: "1"
+
+  LapMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LapMonitor
+      - App/Shared
+    entitlements:
+      path: LapMonitor/LapMonitor.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+        com.apple.security.application-groups: [group.nl.lerai.lap]
+    info:
+      path: LapMonitor/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).LapMonitor
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.lerai.lap.monitor
+
+  LapWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - LapWidgets
+      - App/Shared
+    info:
+      path: LapWidgets/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: nl.lerai.lap.widgets
