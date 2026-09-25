@@ -6,9 +6,11 @@ import Combine
 struct HomeView: View {
     @Environment(ScreenTime.self) private var st
     @Environment(LapTracker.self) private var tracker
+    @Environment(Pro.self) private var pro
     @State private var showRun = false
     @State private var showSettings = false
     @State private var showPicker = false
+    @State private var showPaywall = false
     @State private var now = Date.now
 
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -83,8 +85,10 @@ struct HomeView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .familyActivityPicker(isPresented: $showPicker, selection: Bindable(st).selection)
-            .fullScreenCover(isPresented: $showRun) { RunView() }
+            .fullScreenCover(isPresented: $showRun, onDismiss: presentPaywallIfNeeded) { RunView() }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showPaywall) { PaywallView().interactiveDismissDisabled() }
+            .onChange(of: pro.showPaywall) { _, wanted in if wanted, !showRun, !showSettings { presentPaywallIfNeeded() } }
             .alert("Couldn't unlock apps", isPresented: Binding(
                 get: { st.unlockError != nil },
                 set: { if !$0 { st.unlockError = nil } }
@@ -95,6 +99,12 @@ struct HomeView: View {
             }
             .onReceive(tick) { now = $0; if st.unlockedUntil != nil { st.refresh() } }
         }
+    }
+
+    private func presentPaywallIfNeeded() {
+        guard pro.showPaywall else { return }
+        pro.showPaywall = false
+        showPaywall = true
     }
 
     private var header: some View {

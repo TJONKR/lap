@@ -4,8 +4,12 @@ import FamilyControls
 struct SettingsView: View {
     @Environment(ScreenTime.self) private var st
     @Environment(LapTracker.self) private var tracker
+    @Environment(Pro.self) private var pro
     @Environment(\.dismiss) private var dismiss
     @State private var showPicker = false
+    @State private var showPaywall = false
+    @State private var restoring = false
+    @State private var restoreMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -13,6 +17,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 32) {
                     header
                     apps
+                    membership
                     deal
                     record
                     Text("A lap in the legs. Minutes in the bank.")
@@ -28,6 +33,87 @@ struct SettingsView: View {
             .background(Color.void.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .familyActivityPicker(isPresented: $showPicker, selection: Bindable(st).selection)
+            .sheet(isPresented: $showPaywall) { PaywallView() }
+            .alert("Restore purchases", isPresented: Binding(
+                get: { restoreMessage != nil },
+                set: { if !$0 { restoreMessage = nil } }
+            )) {
+                Button("OK") { restoreMessage = nil }
+            } message: {
+                Text(restoreMessage ?? "")
+            }
+        }
+    }
+
+    private var planName: String {
+        switch pro.planProductID {
+        case let id? where id.hasSuffix(".monthly"): return "Monthly"
+        case let id? where id.hasSuffix(".annual"): return "Annual"
+        case let id? where id.hasSuffix(".lifetime"): return "Forever"
+        case .some: return "Active"
+        case nil: return "Not active"
+        }
+    }
+
+    private var membership: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LapLabel(text: "LAP PRO")
+            VStack(alignment: .leading, spacing: 17) {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: pro.entitled ? "checkmark.seal.fill" : "seal")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(pro.entitled ? Color.vault : Color.tartan)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(planName)
+                            .font(.headline)
+                            .foregroundStyle(Color.ink)
+                        Text(pro.entitled ? "The bank is open. Spend what you run." : "Laps bank without it. Spending needs it.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Rectangle().fill(Color.hairline).frame(height: 1)
+                HStack {
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        HStack {
+                            Text(pro.entitled ? "SEE THE DEAL" : "TAKE THE DEAL")
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .tracking(0.6)
+                        .foregroundStyle(Color.vault)
+                        .contentShape(Rectangle())
+                    }
+                    Spacer()
+                    Button {
+                        Task { await restore() }
+                    } label: {
+                        Text(restoring ? "RESTORING…" : "RESTORE PURCHASES")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.inkSecondary)
+                            .contentShape(Rectangle())
+                    }
+                    .disabled(restoring || !pro.configured)
+                }
+            }
+            .padding(20)
+            .background(Color.surface1, in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.hairline, lineWidth: 1))
+        }
+    }
+
+    private func restore() async {
+        restoring = true
+        defer { restoring = false }
+        do {
+            restoreMessage = try await pro.restore() ? "Lap Pro is back on this device." : "No Lap Pro found on this Apple ID."
+        } catch {
+            restoreMessage = "Couldn't reach the store. Try again."
         }
     }
 

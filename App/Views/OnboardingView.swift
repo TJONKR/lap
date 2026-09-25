@@ -8,9 +8,15 @@ extension Shared.Key {
 struct OnboardingView: View {
     @Environment(ScreenTime.self) private var st
     @Environment(LapTracker.self) private var tracker
+    @Environment(Pro.self) private var pro
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var step = 0
     @State private var showPicker = false
+    @State private var creatorCode = ""
+    @State private var heardFrom: String?
+    @FocusState private var codeFocused: Bool
+
+    private static let sources = ["TikTok", "Instagram", "YouTube", "A friend", "App Store", "Other"]
 
     var onDone: () -> Void = {}
 
@@ -20,8 +26,9 @@ struct OnboardingView: View {
             Group {
                 switch step {
                 case 0: pitch
-                case 1: authorize
-                case 2: pickApps
+                case 1: source
+                case 2: authorize
+                case 3: pickApps
                 default: deal
                 }
             }
@@ -38,7 +45,7 @@ struct OnboardingView: View {
 
     private var dots: some View {
         HStack(spacing: 8) {
-            ForEach(0..<4, id: \.self) { i in
+            ForEach(0..<5, id: \.self) { i in
                 Capsule()
                     .fill(i == step ? Color.tartan : Color.hairline)
                     .frame(width: i == step ? 24 : 8, height: 8)
@@ -65,6 +72,59 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
             Spacer()
         }
+    }
+
+    private var source: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "megaphone.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(Color.tartan)
+            Text("Who sent you?")
+                .font(.system(size: 30, weight: .black, design: .rounded))
+            Text("If a creator gave you a code, drop it here. It never changes your price.")
+                .foregroundStyle(Color.inkSecondary)
+                .multilineTextAlignment(.center)
+            TextField("CREATOR CODE", text: $creatorCode)
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .textContentType(.oneTimeCode)
+                .focused($codeFocused)
+                .submitLabel(.done)
+                .padding(.vertical, 18)
+                .background(Color.surface2, in: Capsule())
+                .overlay(Capsule().stroke(creatorCode.isEmpty ? Color.hairline : Color.vault.opacity(0.38), lineWidth: 1))
+                .foregroundStyle(Color.vault)
+                .onChange(of: creatorCode) { _, v in
+                    let clean = String(v.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(10))
+                    if clean != v { creatorCode = clean }
+                }
+            LapLabel(text: "WHERE DID YOU HEAR ABOUT LAP?").padding(.top, 8)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(Self.sources, id: \.self) { s in
+                    let on = heardFrom == s
+                    Button {
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        heardFrom = on ? nil : s
+                    } label: {
+                        Text(s)
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(on ? Color.void : Color.ink)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
+                            .background(on ? Color.tartan : Color.surface2, in: Capsule())
+                            .overlay(Capsule().stroke(on ? Color.clear : Color.hairline, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                }
+            }
+            Spacer()
+        }
+        .onTapGesture { codeFocused = false }
     }
 
     private var authorize: some View {
@@ -149,7 +209,7 @@ struct OnboardingView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.tartan)
-            if (step == 1 && !st.authorized) || (step == 2 && !st.hasSelection) {
+            if (step == 2 && !st.authorized) || (step == 3 && !st.hasSelection) {
                 Button("Skip for now") { step += 1 }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.inkSecondary)
@@ -163,8 +223,9 @@ struct OnboardingView: View {
     private var primaryTitle: String {
         switch step {
         case 0: return "LET'S GO"
-        case 1: return st.authorized ? "CONTINUE" : "ALLOW SCREEN TIME"
-        case 2: return st.hasSelection ? "CONTINUE" : "PICK APPS"
+        case 1: return creatorCode.isEmpty && heardFrom == nil ? "NO ONE, JUST ME" : "CONTINUE"
+        case 2: return st.authorized ? "CONTINUE" : "ALLOW SCREEN TIME"
+        case 3: return st.hasSelection ? "CONTINUE" : "PICK APPS"
         default: return "START RUNNING"
         }
     }
@@ -172,10 +233,14 @@ struct OnboardingView: View {
     private func primary() {
         switch step {
         case 1:
-            if st.authorized { step += 1 } else { Task { await st.requestAuthorization() } }
+            codeFocused = false
+            pro.attribute(creatorCode: creatorCode, heardFrom: heardFrom)
+            step += 1
         case 2:
-            if st.hasSelection { step += 1 } else { showPicker = true }
+            if st.authorized { step += 1 } else { Task { await st.requestAuthorization() } }
         case 3:
+            if st.hasSelection { step += 1 } else { showPicker = true }
+        case 4:
             Shared.defaults.set(true, forKey: Shared.Key.hasCompletedOnboarding)
             onDone()
         default:
