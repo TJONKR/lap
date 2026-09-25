@@ -11,6 +11,13 @@ settings:
     SWIFT_VERSION: "5.10"
     DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
     CODE_SIGN_STYLE: Automatic
+    # RevenueCat public SDK key (appl_…). Set the env var when running xcodegen, or edit the build setting in Xcode.
+    REVENUECAT_API_KEY: ${REVENUECAT_API_KEY}
+
+packages:
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm
+    exactVersion: 5.90.2
 
 targets:
   Lap:
@@ -33,11 +40,13 @@ targets:
         NSMotionUsageDescription: Used to make lap detection more accurate.
         NSSupportsLiveActivities: true
         ITSAppUsesNonExemptEncryption: false
+        RevenueCatAPIKey: $(REVENUECAT_API_KEY)
     dependencies:
       - target: LapMonitor
         embed: true
       - target: LapWidgets
         embed: true
+      - package: RevenueCat
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.lerai.lap

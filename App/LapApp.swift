@@ -4,8 +4,15 @@ import SwiftUI
 struct LapApp: App {
     @State private var screenTime = ScreenTime()
     @State private var tracker = LapTracker()
+    @State private var pro = Pro()
     @State private var onboarded = Shared.defaults.bool(forKey: Shared.Key.hasCompletedOnboarding)
     @Environment(\.scenePhase) private var phase
+
+    init() {
+        pro.configure()
+        screenTime.entitled = { [pro] in pro.isPro }
+        screenTime.onPaywallNeeded = { [pro] in pro.showPaywall = true }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -13,12 +20,14 @@ struct LapApp: App {
                 HomeView()
                     .environment(screenTime)
                     .environment(tracker)
+                    .environment(pro)
                     .preferredColorScheme(.dark)
                     .onChange(of: phase) { _, p in if p == .active { screenTime.refresh() } }
             } else {
                 OnboardingView { onboarded = true }
                     .environment(screenTime)
                     .environment(tracker)
+                    .environment(pro)
                     .preferredColorScheme(.dark)
             }
         }

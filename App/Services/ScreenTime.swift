@@ -27,6 +27,10 @@ final class ScreenTime {
     /// DeviceActivity schedules must span at least 15 minutes.
     static let minimumSpend: TimeInterval = 15 * 60
 
+    /// Spending is behind Lap Pro. Banking laps is not. Fail-closed: without the entitlement the shield stays up.
+    var entitled: () -> Bool = { true }
+    var onPaywallNeeded: () -> Void = {}
+
     var hasSelection: Bool {
         !(selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty && selection.webDomainTokens.isEmpty)
     }
@@ -41,15 +45,19 @@ final class ScreenTime {
         }
     }
 
+    /// The first banked lap is when the paywall shows: the runner has felt both sides of the deal.
     func deposit(laps: Int) {
+        let firstEver = totalLaps == 0 && laps > 0
         totalLaps += laps
         bankSeconds += Double(laps) * secondsPerLap
+        if firstEver, !entitled() { onPaywallNeeded() }
     }
 
     /// Spend `seconds` from the bank: shield lifts now and the monitor extension re-applies it when the window ends.
     func spend(_ seconds: TimeInterval) {
         let amount = min(seconds, bankSeconds)
         guard amount >= Self.minimumSpend, unlockedUntil == nil, authorized, hasSelection else { return }
+        guard entitled() else { onPaywallNeeded(); return }
         let until = Date.now.addingTimeInterval(amount)
         do {
             try scheduleRelock(at: until)
